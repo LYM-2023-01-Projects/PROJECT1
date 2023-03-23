@@ -1,0 +1,730 @@
+/*
+Gramatica para el Robot:
+Autor: Alejandro Arango
+Modificado por: Silvia Takahashi
+Modificado por: Juan Pablo Morales.
+Agregadas producciones para manejar globos
+Modificado por Silvia Takahashi
+
+
+ **/
+
+
+options 
+
+{
+	LOOKAHEAD=1; 
+	IGNORE_CASE=true;
+	STATIC = false;
+	
+}
+
+PARSER_BEGIN(Robot)
+
+package uniandes.lym.robot.control;
+
+import uniandes.lym.robot.kernel.*;
+import uniandes.lym.robot.view.Console;
+ 
+import java.awt.Point;
+import java.io.*;
+import java.util.Vector;
+import java.util.LinkedList;
+import java.util.*;
+
+@SuppressWarnings("serial")
+public class Robot 
+{
+
+	Map<String, Integer> mem = new HashMap<String, Integer>(); //Memory to store variables.
+
+	private final int Cmd = 0; //Command
+	private final int Ctst = 1; //Control Structure
+	private final int Prc = 2;  //Procedure Call
+	
+	private final int Asg = 0;
+	private final int Got = 1;
+	private final int Mov = 2;
+	private final int Turn = 3;
+	private final int Face = 4;
+	private final int Put = 5;
+	private final int Pick = 6;
+	private final int Movetothe = 7;
+	private final int Moveindir = 8;
+	private final int Jumptothe = 9;
+	private final int Jumpindir = 10;
+	private final int Nop = 11;
+
+
+
+	private class Direction {
+
+
+
+	  private int dir;
+	  private Map<String, Integer> name_to_num = new HashMap<String, Integer>();
+	  private Map<Integer, Integer> nums_directions = new HashMap<Integer, Integer>();
+	  
+
+	  public Direction(int number_direction1){
+		int size_dir = nums_directions.size();
+		if (size_dir == 0) {
+		  nums_directions.put(0,0);
+		  nums_directions.put(1,2);
+		  nums_directions.put(2,1);
+		  nums_directions.put(3,3);
+		  }
+		int number_direction2 = nums_directions.get(number_direction1);
+		this.dir = number_direction2;
+	  }	   
+
+		public int getdir() {
+			return this.dir;
+		}
+
+
+		/**
+		* Used to calculate how many turnrights are needed to get from one direction to another
+		* @param dir1 the other direction to calculate the number of turnrights. 
+		*/
+		  public int Number_of_turnrights_to(String dir1) {
+
+				int size_dir = name_to_num.size();
+				if (size_dir == 0) {
+				  name_to_num.put("north",0);
+				  name_to_num.put("east",1);
+				  name_to_num.put("west",3);
+				  name_to_num.put("south",2);
+				  }
+
+				int dir2 = name_to_num.get(dir1);
+							
+				int distance = dir2-this.dir;
+				if (distance > 0 || distance == 0) {
+					return distance;
+				} else { distance = 4 + distance; return distance;}
+		    }
+		  }
+		    
+	  
+	
+	private RobotWorldDec world;
+	
+	
+	void setWorld(RobotWorld w) {
+		world = (RobotWorldDec) w;	
+	}
+
+	String salida = new String();
+
+	private class Instruction {
+
+		int type_of_instruction = -1;
+		int type_of_command = -1;
+		int num1 = -1;
+		int num2 = -1;
+		String str = "empty";
+
+		// Constructors for Instructions of Type command
+
+		// Constructor for cm assignTo
+		public Instruction(int t, String s, int n, String name) {
+		  type_of_instruction = t;
+		  type_of_command = Asg;
+		  num1 = n;
+		  str = name;
+		}
+
+		// Constructor for cm put, pick, movetothe, moveindir, jumptothe, jumpindir
+		public Instruction(int t, int s, int n, String name) {
+		  type_of_instruction = t;
+		  type_of_command = s;
+		  num1 = n;
+		  str = name.toLowerCase();
+		}
+		
+		// Constructor for cm goto
+		public Instruction(int t, int s, int n, int m) {
+		  type_of_instruction = t;
+		  type_of_command = s;
+		  num1 = n;
+		  num2 = m;
+		}
+
+		// Constructor for cm move
+		public Instruction(int t, int s, int n) {
+		  type_of_instruction = t;
+		  type_of_command = s;
+		  num1 = n;
+		}
+
+		// Constructor for cm turn, face
+		public Instruction(int t, int s, String name) {
+		  type_of_instruction = t;
+		  type_of_command = s;
+		  str = name.toLowerCase();
+		}
+		
+		// Constructor for cm nop
+		
+		public Instruction(int t, int s) {
+		  type_of_instruction = t;
+		  type_of_command = s;
+		}
+		
+		
+		public void execute() throws Error {
+		switch (type_of_instruction) {
+			case Cmd : switch (type_of_command) {
+				case Asg: mem.put(str, num1) ; break;
+			  	case Got: world.setPostion(num1,num2); break;
+			  	case Mov: world.moveForward(num1,false); break;
+	
+				case Turn: switch (str){
+				  case "left": world.turnRight(); world.turnRight(); world.turnRight(); break;
+				  case "right": world.turnRight(); break;
+				  case "around": world.turnRight(); world.turnRight();  break;
+				  case "back": world.turnRight(); world.turnRight();  break;
+				  case "front": ;  break;
+				  default: throw new Error("Unknown direction: " + str);};
+				  break;
+	
+				case Face:
+
+				int current_dir1 = world.getFacing();
+				Direction current_dir2 = new Direction(current_dir1);
+				int number_of_turnrights = current_dir2.Number_of_turnrights_to(str);			
+				int i = 0;
+				while (i < number_of_turnrights) {
+				  world.turnRight();
+				  i++;
+				}
+				 ; break;
+
+				case Put: switch(str) {
+					case "balloons": world.putBalloons(num1); break;
+					case "chips": world.putChips(num1); break;
+					default: throw new Error("Unknown object to put: " + str);};
+					break;
+
+				case Pick: switch(str) {
+					case "balloons": world.grabBalloons(num1); break;
+					case "chips": world.pickChips(num1); break;
+					default: throw new Error("Unknown object to put: " + str);};
+					break;
+					
+				case Movetothe:
+
+					int current_dir3 = world.getFacing();
+					String current_dir4 = "";
+					switch (current_dir3) {
+					  case 0: current_dir4 = "north"; break;
+					  case 1: current_dir4 = "south"; break;
+					  case 2: current_dir4 = "east"; break;
+					  case 3: current_dir4 = "west"; break;
+					  default : throw new Error("Unknown cardinal direction");}
+					
+					Instruction turn1 = new Instruction(Cmd,Turn,str);
+					turn1.execute();
+
+					Instruction mov1 = new Instruction(Cmd,Mov,num1);
+					mov1.execute();
+
+					Instruction fac1 = new Instruction(Cmd,Face,current_dir4);
+					fac1.execute();
+
+
+				  break;
+				  
+				case Moveindir:
+					Instruction fac2 = new Instruction(Cmd,Face,str);
+					fac2.execute();
+
+					Instruction mov2 = new Instruction(Cmd,Mov,num1);
+					mov2.execute();
+					
+				; break;
+				case Jumptothe:
+
+					int current_dir5 = world.getFacing();
+					String current_dir6 = "";
+					switch (current_dir5) {
+					  case 0: current_dir6 = "north"; break;
+					  case 1: current_dir6 = "south"; break;
+					  case 2: current_dir6 = "east"; break;
+					  case 3: current_dir6 = "west"; break;
+					  default : throw new Error("Unknown cardinal direction");}
+					
+					Instruction turn2 = new Instruction(Cmd,Turn,str);
+					turn2.execute();
+
+					world.moveForward(num1,true);
+
+					Instruction fac3 = new Instruction(Cmd,Face,current_dir6);
+					fac3.execute();
+					break;
+
+				case Jumpindir:
+
+					Instruction fac4 = new Instruction(Cmd,Face,str);
+					fac4.execute();
+
+					world.moveForward(num1,true);
+					; break;
+				case Nop: ; break;
+								
+				default: String command1 = Integer.toString(type_of_command); throw new Error("Unknown type_of_command: " + command1);}; break;
+			case Ctst: ;break;
+			case Prc: ;break;
+			default: String ins1 = Integer.toString(type_of_instruction); throw new Error("Unknown type_of_instuction: " + ins1);
+		  
+		}
+		
+		}
+}
+}
+PARSER_END(Robot)
+
+SKIP:
+{
+	" "
+	| "\r"
+	| "\t"
+	| "\n"
+}
+
+TOKEN: /* Keywords */
+
+{
+	< ROBOT_R : "ROBOT_R" >
+	| < VARS : "VARS" >
+	| < PROCS : "PROCS" >
+}
+
+TOKEN: /* Commands */
+
+{
+	< assignTo : "assignTo" >
+	| < go: "goto">
+	| < move : "move" >
+	| < turn : "turn" >
+	| < face : "face" >
+	| < put: "put" >
+	| < pick : "pick" >
+	| < moveToThe : "moveToThe" >
+	| < moveInDir : "moveInDir" >
+	| < jumpToThe : "jumpToThe" >
+	| < jumpInDir : "jumpInDir" >
+	| < nop : "nop" >
+}
+
+TOKEN: /* Conditionals */
+
+{
+	< facing : "facing" >
+	| < canPut : "canPut" >
+	| < canPick : "canPick" >
+	| < canMoveInDir : "canMoveInDir" >
+	| < canJumpInDir : "canJumpInDir" >
+	| < canMoveToThe : "canMoveToThe" >
+	| < canJumpToThe : "canJumpToThe" >
+	| < not : "not" >
+}
+
+TOKEN: /* Control structure keywords */
+
+{
+	< IF : "if" >
+	| < THEN : "then" >
+	| < ELSE : "else" >
+	| < WHILE : "while" >
+	| < DO : "do" >
+	| < REPEAT : "repeat" >
+}
+
+
+TOKEN: /* Special tokens*/
+{
+
+	< LEFT : "Left" >
+	| < FRONT :"front" >
+	| < BACK :"back" >
+	| < RIGHT :"Right" >
+	| < AROUND : "Around" >
+	| < NORTH : "North" >
+	| < SOUTH : "South" >
+	| < EAST : "East" >
+	| < WEST : "West" >
+	| < BALLOONS : "Balloons">
+	| < CHIPS : "Chips" >
+	| < #DIGIT : [ "0"-"9" ] >
+	| < #LETTER : [ "A"-"Z" ] >
+	| < NUM: (< DIGIT >)+ >
+	| < ID : < LETTER > (< LETTER >| < DIGIT >)* >
+}
+
+
+
+boolean command(Console sistema):
+{}
+{ <ROBOT_R> [V()] [P()] B() {sistema.printOutput("End"); return true;}| <EOF> { return false;}}
+
+void V():
+{}
+{ <VARS> LV() ";" }
+
+void LV():
+{
+  String x,y;
+}
+{ x=Id() {mem.put(x, null);}( "," y=Id() {mem.put(y, null);})* }
+
+void P():
+{}
+{ <PROCS> ( PD() )+ }
+
+void PD():
+{
+	boolean execute = false;
+}
+{ Id() "[" "|" [Prm()] "|" Ins(execute) "]" }
+
+void Prm():
+{}
+{ Id() ("," Id())* }
+
+void Ins(boolean execute):
+{}
+{ ( Cm(execute) | CtS() | PC() )( ";" ( Cm(execute) | CtS() | PC()) )* }
+
+void Cm(boolean execute):
+{}
+{ assignTo(execute) | go(execute) | move(execute) | turn(execute) | face(execute) | put(execute) | pick(execute) | moveToThe(execute) | moveInDir(execute) | jumpToThe(execute) | jumpInDir(execute) | nop(execute) }
+
+void assignTo(boolean execute):
+{
+	int x;
+	String y;
+}
+{
+  <assignTo> ":" x = num() "," y = Id()
+
+  {
+	Instruction inst = new Instruction(Cmd, "Asg", x, y);
+	if (execute) {
+	  inst.execute();
+	 } else {
+	    ;}
+	}
+}
+
+void go(boolean execute):
+{
+	int x;
+	int y;
+}
+{
+  < go > ":" x = nv() "," y = nv()
+  {
+	Instruction inst = new Instruction(Cmd, Got, x, y);
+	if (execute) {
+	  inst.execute();
+	 } else {
+	    ;}
+	}
+
+}
+
+void move(boolean execute):
+{
+	int x;
+}
+{
+  <move> ":" x = nv()
+	{
+		Instruction inst = new Instruction(Cmd, Mov, x);
+		if (execute) {
+		  inst.execute();
+		 } else {
+		    ;}
+	}
+}
+
+void turn(boolean execute):
+{
+	Token token;
+	String Direction;
+}
+{
+  <turn> ":" ( token = <LEFT> | token = <RIGHT> | token = <AROUND> )
+
+	{
+	  Direction = token.image;
+	  Instruction inst = new Instruction(Cmd,Turn,Direction);
+	  if (execute) {
+		  inst.execute();
+		 } else {
+		    ;}
+	}
+}
+
+void face(boolean execute):
+{
+	Token token;
+	String Cardinal;
+}
+{ <face> ":" ( token = <NORTH> | token = <SOUTH> | token = <EAST> | token = <WEST> )
+
+	{
+	  Cardinal = token.image;
+	  Instruction inst = new Instruction(Cmd,Face,Cardinal);
+	  if (execute) {
+		  inst.execute();
+		 } else {
+		    ;}
+	}
+}
+
+void put(boolean execute):
+{
+	int x;
+	Token token;
+	String y;
+}
+{
+  <put> ":" x = nv() "," ( token = <BALLOONS> | token = <CHIPS> )
+	{
+	y = token.image;
+	Instruction inst = new Instruction(Cmd, Put, x, y);
+	if (execute) {
+	  inst.execute();
+	 } else {
+	    ;}
+	}
+}
+
+void pick(boolean execute):
+{
+	Token token;
+	int x;
+	String y;
+}
+{
+  < pick > ":" x = nv() "," ( token = <BALLOONS> | token = <CHIPS> )
+	{
+	y = token.image;
+	Instruction inst = new Instruction(Cmd, Pick, x, y);
+	if (execute) {
+	  inst.execute();
+	 } else {
+	    ;}
+	}
+  
+}
+
+void moveToThe(boolean execute):
+{
+	Token token;
+	int x;
+	String y;
+}
+{
+  <moveToThe> ":" x = nv() "," ( token = <LEFT> | token = <RIGHT> | token = <FRONT> | token = <BACK> )
+	{
+	y = token.image;
+	Instruction inst = new Instruction(Cmd, Movetothe, x, y);
+	if (execute) {
+	  inst.execute();
+	 } else {
+	    ;}
+	}
+	
+}
+
+void moveInDir(boolean execute):
+{
+	Token token;
+	int x;
+	String y;
+}
+{
+  <moveInDir> ":" x = nv() "," ( token = <NORTH> | token = <SOUTH> | token = <EAST> | token = <WEST> )
+	{
+	y = token.image;
+	Instruction inst = new Instruction(Cmd, Moveindir, x, y);
+	if (execute) {
+	  inst.execute();
+	 } else {
+	    ;}
+	}
+}
+
+void jumpToThe(boolean execute):
+{
+	Token token;
+	int x;
+	String y;
+}
+{
+  <jumpToThe> ":" x = nv() "," ( token = <LEFT> | token = <RIGHT> | token = <FRONT> | token = <BACK>  )
+	{
+	y = token.image;
+	Instruction inst = new Instruction(Cmd, Jumptothe, x, y);
+	if (execute) {
+	  inst.execute();
+	 } else {
+	    ;}
+	}
+}
+
+void jumpInDir(boolean execute):
+{
+	Token token;
+	int x;
+	String y;
+}
+{
+  <jumpInDir> ":" x = nv() "," ( token = <NORTH> | token = <SOUTH> | token = <EAST> | token = <WEST> )
+	{
+	y = token.image;
+	Instruction inst = new Instruction(Cmd, Jumpindir, x, y);
+	if (execute) {
+	  inst.execute();
+	 } else {
+	    ;}
+	}
+}
+
+void nop(boolean execute):
+{}
+{ <nop> ":"
+	{
+	Instruction inst = new Instruction(Cmd, Nop);
+	if (execute) {
+	  inst.execute();
+	 } else {
+	    ;}
+	}
+}
+
+void CtS():
+{}
+{ Cdl() | Lp() | RpTms() }
+
+void Cdl():
+{}
+{ <IF> ":" Cdn() <THEN> ":" B() <ELSE> ":" B() }
+
+void Cdn():
+{}
+{ facing() | canPut() | canPick() | canMoveInDir() | canJumpInDir() | canMoveToThe() | canJumpToThe() | not() }
+
+void facing():
+{}
+{ <facing> ":" ( <NORTH> | <SOUTH> | <EAST> | <WEST> ) }
+
+void canPut():
+{}
+{ <canPut> ":" nv() "," ( <BALLOONS> | <CHIPS> )}
+
+void canPick():
+{}
+{ <canPick> ":" nv() "," ( <BALLOONS> | <CHIPS> ) }
+
+void canMoveInDir():
+{}
+{ <canMoveInDir> ":" nv() "," ( <LEFT> | <RIGHT> | <AROUND> ) }
+
+void canJumpInDir():
+{}
+{ <canJumpInDir> ":" nv() "," ( <LEFT> | <RIGHT> | <AROUND> ) }
+
+void canMoveToThe():
+{}
+{ <canMoveToThe> ":" nv() "," ( <NORTH> | <SOUTH> | <EAST> | <WEST> ) }
+
+void canJumpToThe():
+{}
+{ <canJumpToThe> ":" nv() "," ( <NORTH> | <SOUTH> | <EAST> | <WEST> ) }
+
+void not():
+{}
+{ <not> ":" Cdn() }
+
+void Lp():
+{}
+{ <WHILE> ":" Cdn() <DO> ":" B() }
+
+void RpTms():
+{}
+{ <REPEAT> ":" nv() B() }
+
+void PC():
+{
+}
+{
+	Id() ":" [nv() ( "," nv() )*]
+}
+
+void B():
+{
+	boolean execute = true;
+}
+{ "[" [Ins(execute)] "]"  }
+
+String Id() throws Error:
+{	
+	Token token;
+}
+
+{
+	(token=<ID>)
+
+	{
+  		return token.image;
+	}   
+}
+
+int num() throws Error:
+{	
+	int total=-9999;
+	Token token;
+}
+
+
+{
+	(token=<NUM>)
+
+	{ 
+		try {
+			total = Integer.valueOf(token.image);
+		} 
+		catch (NumberFormatException ee) {
+			throw new Error("Number too large: "+token.image);
+		}
+		return total;
+     }
+     
+       
+}
+
+int nv() throws Error:
+{	
+	int total=-9999;
+	Token token;
+}
+
+
+{
+	(total=num() {return total;}
+	| token=<ID>
+		{ 
+			String id1 = token.image;
+			if (mem.get(id1)==null)throw new Error("La variable: " + id1 + " no fue declarada");
+	        else { total = mem.get(id1); };
+			return total;
+     }
+	)
+
+       
+}
