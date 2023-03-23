@@ -38,6 +38,11 @@ public class Robot
 
 	Map<String, Integer> mem = new HashMap<String, Integer>(); //Memory to store variables.
 
+	Map<String, ArrayList<Instruction>> Procedures = new HashMap<String, ArrayList<Instruction>>(); //Memory to store procedures.
+
+	
+	HashMap<String, HashMap<String, Integer> > Parameters = new HashMap<String, HashMap<String, Integer>>(); //Memory to store parameters of procedures.
+
 	private final int Cmd = 0; //Command
 	private final int Ctst = 1; //Control Structure
 	private final int Prc = 2;  //Procedure Call
@@ -171,7 +176,15 @@ public class Robot
 		  type_of_instruction = t;
 		  type_of_command = s;
 		}
-		
+
+		// Constructors for Instructions of Type Procedure call
+
+		// Constructor for procedure call
+		public Instruction(int t, String s) {
+		  type_of_instruction = t;
+		  str = s;
+
+		}
 		
 		public void execute() throws Error {
 		switch (type_of_instruction) {
@@ -274,8 +287,19 @@ public class Robot
 				case Nop: ; break;
 								
 				default: String command1 = Integer.toString(type_of_command); throw new Error("Unknown type_of_command: " + command1);}; break;
+			case Prc:
+				if (Procedures.get(str)==null)throw new Error("El procedure: " + str + " no existe");
+				else { 
+					ArrayList<Instruction> procs = Procedures.get(str);
+					Iterator<Instruction> iprocs = procs.iterator();
+					while(iprocs.hasNext()) {
+						Instruction i = iprocs.next();
+						i.execute();
+					  }
+				}
+
+			;break;
 			case Ctst: ;break;
-			case Prc: ;break;
 			default: String ins1 = Integer.toString(type_of_instruction); throw new Error("Unknown type_of_instuction: " + ins1);
 		  
 		}
@@ -386,22 +410,34 @@ void P():
 void PD():
 {
 	boolean execute = false;
+	String nombre_proc;
+	
 }
-{ Id() "[" "|" [Prm()] "|" Ins(execute) "]" }
+{ nombre_proc=Id()
+	{
+	 Instruction inst = new Instruction(Cmd, Nop);
+	ArrayList<Instruction> arr = new ArrayList<Instruction>();
+	arr.add(inst);
+	  Procedures.put(nombre_proc,arr);}
+	"[" "|"
+	[Prm()] "|"
+	Ins(execute, nombre_proc)
+
+	"]" }
 
 void Prm():
 {}
 { Id() ("," Id())* }
 
-void Ins(boolean execute):
+void Ins(boolean execute, String nombre_proc):
 {}
-{ ( Cm(execute) | CtS() | PC() )( ";" ( Cm(execute) | CtS() | PC()) )* }
+{ ( Cm(execute, nombre_proc) | CtS() | PC() )( ";" ( Cm(execute, nombre_proc) | CtS() | PC()) )* }
 
-void Cm(boolean execute):
+void Cm(boolean execute, String nombre_proc):
 {}
-{ assignTo(execute) | go(execute) | move(execute) | turn(execute) | face(execute) | put(execute) | pick(execute) | moveToThe(execute) | moveInDir(execute) | jumpToThe(execute) | jumpInDir(execute) | nop(execute) }
+{ assignTo(execute, nombre_proc) | go(execute, nombre_proc) | move(execute, nombre_proc) | turn(execute, nombre_proc) | face(execute, nombre_proc) | put(execute, nombre_proc) | pick(execute, nombre_proc) | moveToThe(execute, nombre_proc) | moveInDir(execute, nombre_proc) | jumpToThe(execute, nombre_proc) | jumpInDir(execute, nombre_proc) | nop(execute, nombre_proc) }
 
-void assignTo(boolean execute):
+void assignTo(boolean execute, String nombre_proc):
 {
 	int x;
 	String y;
@@ -414,43 +450,49 @@ void assignTo(boolean execute):
 	if (execute) {
 	  inst.execute();
 	 } else {
-	    ;}
+		ArrayList<Instruction> procs1 = Procedures.get(nombre_proc);
+		procs1.add(inst);
+	    }
 	}
 }
 
-void go(boolean execute):
+void go(boolean execute, String nombre_proc):
 {
 	int x;
 	int y;
 }
 {
-  < go > ":" x = nv() "," y = nv()
+  < go > ":" x = nv(execute) "," y = nv(execute)
   {
 	Instruction inst = new Instruction(Cmd, Got, x, y);
 	if (execute) {
 	  inst.execute();
 	 } else {
-	    ;}
+		ArrayList<Instruction> procs1 = Procedures.get(nombre_proc);
+		procs1.add(inst);
+	    }
 	}
 
 }
 
-void move(boolean execute):
+void move(boolean execute, String nombre_proc):
 {
 	int x;
 }
 {
-  <move> ":" x = nv()
+  <move> ":" x = nv(execute)
 	{
 		Instruction inst = new Instruction(Cmd, Mov, x);
 		if (execute) {
 		  inst.execute();
 		 } else {
-		    ;}
+		ArrayList<Instruction> procs1 = Procedures.get(nombre_proc);
+		procs1.add(inst);
+	    }
 	}
 }
 
-void turn(boolean execute):
+void turn(boolean execute, String nombre_proc):
 {
 	Token token;
 	String Direction;
@@ -464,11 +506,13 @@ void turn(boolean execute):
 	  if (execute) {
 		  inst.execute();
 		 } else {
-		    ;}
+		ArrayList<Instruction> procs1 = Procedures.get(nombre_proc);
+		procs1.add(inst);
+	    }
 	}
 }
 
-void face(boolean execute):
+void face(boolean execute, String nombre_proc):
 {
 	Token token;
 	String Cardinal;
@@ -485,14 +529,14 @@ void face(boolean execute):
 	}
 }
 
-void put(boolean execute):
+void put(boolean execute, String nombre_proc):
 {
 	int x;
 	Token token;
 	String y;
 }
 {
-  <put> ":" x = nv() "," ( token = <BALLOONS> | token = <CHIPS> )
+  <put> ":" x = nv(execute) "," ( token = <BALLOONS> | token = <CHIPS> )
 	{
 	y = token.image;
 	Instruction inst = new Instruction(Cmd, Put, x, y);
@@ -503,14 +547,14 @@ void put(boolean execute):
 	}
 }
 
-void pick(boolean execute):
+void pick(boolean execute, String nombre_proc):
 {
 	Token token;
 	int x;
 	String y;
 }
 {
-  < pick > ":" x = nv() "," ( token = <BALLOONS> | token = <CHIPS> )
+  < pick > ":" x = nv(execute) "," ( token = <BALLOONS> | token = <CHIPS> )
 	{
 	y = token.image;
 	Instruction inst = new Instruction(Cmd, Pick, x, y);
@@ -522,14 +566,14 @@ void pick(boolean execute):
   
 }
 
-void moveToThe(boolean execute):
+void moveToThe(boolean execute, String nombre_proc):
 {
 	Token token;
 	int x;
 	String y;
 }
 {
-  <moveToThe> ":" x = nv() "," ( token = <LEFT> | token = <RIGHT> | token = <FRONT> | token = <BACK> )
+  <moveToThe> ":" x = nv(execute) "," ( token = <LEFT> | token = <RIGHT> | token = <FRONT> | token = <BACK> )
 	{
 	y = token.image;
 	Instruction inst = new Instruction(Cmd, Movetothe, x, y);
@@ -541,14 +585,14 @@ void moveToThe(boolean execute):
 	
 }
 
-void moveInDir(boolean execute):
+void moveInDir(boolean execute, String nombre_proc):
 {
 	Token token;
 	int x;
 	String y;
 }
 {
-  <moveInDir> ":" x = nv() "," ( token = <NORTH> | token = <SOUTH> | token = <EAST> | token = <WEST> )
+  <moveInDir> ":" x = nv(execute) "," ( token = <NORTH> | token = <SOUTH> | token = <EAST> | token = <WEST> )
 	{
 	y = token.image;
 	Instruction inst = new Instruction(Cmd, Moveindir, x, y);
@@ -559,14 +603,14 @@ void moveInDir(boolean execute):
 	}
 }
 
-void jumpToThe(boolean execute):
+void jumpToThe(boolean execute, String nombre_proc):
 {
 	Token token;
 	int x;
 	String y;
 }
 {
-  <jumpToThe> ":" x = nv() "," ( token = <LEFT> | token = <RIGHT> | token = <FRONT> | token = <BACK>  )
+  <jumpToThe> ":" x = nv(execute) "," ( token = <LEFT> | token = <RIGHT> | token = <FRONT> | token = <BACK>  )
 	{
 	y = token.image;
 	Instruction inst = new Instruction(Cmd, Jumptothe, x, y);
@@ -577,14 +621,14 @@ void jumpToThe(boolean execute):
 	}
 }
 
-void jumpInDir(boolean execute):
+void jumpInDir(boolean execute, String nombre_proc):
 {
 	Token token;
 	int x;
 	String y;
 }
 {
-  <jumpInDir> ":" x = nv() "," ( token = <NORTH> | token = <SOUTH> | token = <EAST> | token = <WEST> )
+  <jumpInDir> ":" x = nv(execute) "," ( token = <NORTH> | token = <SOUTH> | token = <EAST> | token = <WEST> )
 	{
 	y = token.image;
 	Instruction inst = new Instruction(Cmd, Jumpindir, x, y);
@@ -595,7 +639,7 @@ void jumpInDir(boolean execute):
 	}
 }
 
-void nop(boolean execute):
+void nop(boolean execute, String nombre_proc):
 {}
 { <nop> ":"
 	{
@@ -625,27 +669,27 @@ void facing():
 
 void canPut():
 {}
-{ <canPut> ":" nv() "," ( <BALLOONS> | <CHIPS> )}
+{ <canPut> ":" nv(true) "," ( <BALLOONS> | <CHIPS> )}
 
 void canPick():
 {}
-{ <canPick> ":" nv() "," ( <BALLOONS> | <CHIPS> ) }
+{ <canPick> ":" nv(true) "," ( <BALLOONS> | <CHIPS> ) }
 
 void canMoveInDir():
 {}
-{ <canMoveInDir> ":" nv() "," ( <LEFT> | <RIGHT> | <AROUND> ) }
+{ <canMoveInDir> ":" nv(true) "," ( <LEFT> | <RIGHT> | <AROUND> ) }
 
 void canJumpInDir():
 {}
-{ <canJumpInDir> ":" nv() "," ( <LEFT> | <RIGHT> | <AROUND> ) }
+{ <canJumpInDir> ":" nv(true) "," ( <LEFT> | <RIGHT> | <AROUND> ) }
 
 void canMoveToThe():
 {}
-{ <canMoveToThe> ":" nv() "," ( <NORTH> | <SOUTH> | <EAST> | <WEST> ) }
+{ <canMoveToThe> ":" nv(true) "," ( <NORTH> | <SOUTH> | <EAST> | <WEST> ) }
 
 void canJumpToThe():
 {}
-{ <canJumpToThe> ":" nv() "," ( <NORTH> | <SOUTH> | <EAST> | <WEST> ) }
+{ <canJumpToThe> ":" nv(true) "," ( <NORTH> | <SOUTH> | <EAST> | <WEST> ) }
 
 void not():
 {}
@@ -657,20 +701,24 @@ void Lp():
 
 void RpTms():
 {}
-{ <REPEAT> ":" nv() B() }
+{ <REPEAT> ":" nv(true) B() }
 
 void PC():
 {
+  String x;
 }
 {
-	Id() ":" [nv() ( "," nv() )*]
+	x = Id() {
+	Instruction inst = new Instruction(Prc, x);
+	inst.execute();
+	 }":" [nv(true) ( "," nv(true) )*]
 }
 
 void B():
 {
 	boolean execute = true;
 }
-{ "[" [Ins(execute)] "]"  }
+{ "[" [Ins(execute, "")] "]"  }
 
 String Id() throws Error:
 {	
@@ -708,7 +756,7 @@ int num() throws Error:
        
 }
 
-int nv() throws Error:
+int nv(boolean execute) throws Error:
 {	
 	int total=-9999;
 	Token token;
@@ -719,12 +767,12 @@ int nv() throws Error:
 	(total=num() {return total;}
 	| token=<ID>
 		{ 
-			String id1 = token.image;
+			if (execute) { String id1 = token.image;
 			if (mem.get(id1)==null)throw new Error("La variable: " + id1 + " no fue declarada");
 	        else { total = mem.get(id1); };
-			return total;
+			return total; }
+			else { return -10;}
      }
 	)
 
-       
 }
